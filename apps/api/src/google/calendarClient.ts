@@ -40,6 +40,22 @@ function normalizeEvent(event: calendar_v3.Schema$Event): CalendarEventSummary {
   };
 }
 
+async function listCalendarEventsBetween(
+  timeMin: Date,
+  timeMax: Date
+): Promise<CalendarEventSummary[]> {
+  const calendar = getCalendarClient();
+  const { data } = await calendar.events.list({
+    calendarId: config.google.calendarId,
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    singleEvents: true,
+    orderBy: "startTime"
+  });
+
+  return (data.items ?? []).map(normalizeEvent).filter((event) => event.id);
+}
+
 export function getGoogleAuthUrl(): string {
   return getOAuthClient().generateAuthUrl({
     access_type: "offline",
@@ -74,21 +90,21 @@ export async function createCalendarEvent(input: {
   return normalizeEvent(data);
 }
 
+export async function findCalendarConflicts(input: {
+  datetime: string;
+  durationMinutes: number;
+}): Promise<CalendarEventSummary[]> {
+  const start = parseDateTime(input.datetime);
+  const end = addMinutes(start, input.durationMinutes);
+
+  return listCalendarEventsBetween(start, end);
+}
+
 export async function listCalendarEvents(
   dateRange: string
 ): Promise<CalendarEventSummary[]> {
-  const calendar = getCalendarClient();
   const { timeMin, timeMax } = resolveDateRange(dateRange);
-
-  const { data } = await calendar.events.list({
-    calendarId: config.google.calendarId,
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-    singleEvents: true,
-    orderBy: "startTime"
-  });
-
-  return (data.items ?? []).map(normalizeEvent).filter((event) => event.id);
+  return listCalendarEventsBetween(timeMin, timeMax);
 }
 
 export async function updateCalendarEvent(input: {

@@ -1,5 +1,10 @@
 import { FormEvent, useMemo, useRef, useState } from "react";
-import type { ChatMessage } from "@ai-calendar-assistant/shared";
+import type {
+  ChatMessage,
+  EventConfirmationOption
+} from "@ai-calendar-assistant/shared";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { sendChatMessage, type UiMessage } from "./api";
 
@@ -27,8 +32,19 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
-function MessageBubble({ message }: { message: UiMessage }) {
+function MessageBubble({
+  message,
+  onConfirm,
+  isSending
+}: {
+  message: UiMessage;
+  onConfirm: (option: EventConfirmationOption) => void;
+  isSending: boolean;
+}) {
   const isUser = message.role === "user";
+  const markdownLinkClass = isUser
+    ? "font-semibold text-white underline"
+    : "font-semibold text-blue-600 hover:text-blue-700";
 
   return (
     <article
@@ -38,7 +54,41 @@ function MessageBubble({ message }: { message: UiMessage }) {
           : "mr-auto border border-slate-200 bg-white text-slate-900"
       } max-w-[82%]`}
     >
-      <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+      {isUser ? (
+        <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+      ) : (
+        <div className="prose prose-sm max-w-none prose-slate leading-6">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ children, ...props }) => (
+                <a
+                  {...props}
+                  className={markdownLinkClass}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {children}
+                </a>
+              ),
+              p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+              ul: ({ children }) => (
+                <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0">
+                  {children}
+                </ul>
+              ),
+              li: ({ children }) => <li className="pl-1">{children}</li>,
+              strong: ({ children }) => (
+                <strong className="font-semibold text-slate-950">
+                  {children}
+                </strong>
+              )
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </div>
+      )}
 
       {message.events && message.events.length > 0 ? (
         <div className="mt-4 space-y-3">
@@ -62,6 +112,22 @@ function MessageBubble({ message }: { message: UiMessage }) {
                 </a>
               ) : null}
             </div>
+          ))}
+        </div>
+      ) : null}
+
+      {message.pendingConfirmation ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {message.pendingConfirmation.options.map((option) => (
+            <button
+              key={option.event.id}
+              type="button"
+              disabled={isSending}
+              onClick={() => onConfirm(option)}
+              className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Select {option.label}
+            </button>
           ))}
         </div>
       ) : null}
@@ -133,7 +199,8 @@ export default function App() {
           role: "assistant",
           content: response.reply,
           events: response.events,
-          eventLink: response.eventLink
+          eventLink: response.eventLink,
+          pendingConfirmation: response.pendingConfirmation
         }
       ]);
     } catch (caughtError) {
@@ -148,6 +215,58 @@ export default function App() {
           id: newId(),
           role: "assistant",
           content: `I could not complete that request: ${message}`
+        }
+      ]);
+    } finally {
+      setIsSending(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  async function handleConfirmation(option: EventConfirmationOption) {
+    if (isSending) {
+      return;
+    }
+
+    const userMessage: UiMessage = {
+      id: newId(),
+      role: "user",
+      content: `Use ${option.label}`
+    };
+
+    setMessages((current) => [...current, userMessage]);
+    setIsSending(true);
+    setError(null);
+
+    try {
+      const response = await sendChatMessage(
+        userMessage.content,
+        apiHistory,
+        option.confirmation
+      );
+      setMessages((current) => [
+        ...current,
+        {
+          id: newId(),
+          role: "assistant",
+          content: response.reply,
+          events: response.events,
+          eventLink: response.eventLink,
+          pendingConfirmation: response.pendingConfirmation
+        }
+      ]);
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Something went wrong.";
+      setError(message);
+      setMessages((current) => [
+        ...current,
+        {
+          id: newId(),
+          role: "assistant",
+          content: `I could not complete that confirmation: ${message}`
         }
       ]);
     } finally {
@@ -184,7 +303,12 @@ export default function App() {
 
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onConfirm={handleConfirmation}
+              isSending={isSending}
+            />
           ))}
           {isSending ? (
             <div className="mr-auto max-w-[82%] rounded-3xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500 shadow-sm">

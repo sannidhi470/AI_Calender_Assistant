@@ -25,6 +25,7 @@ Rules:
 - If an event id is missing for update or delete, list likely events first, then choose the best match by title/time.
 - Ask a concise follow-up question when required details are missing.
 - Confirm every create, update, and delete in human-readable language.
+- If create_event returns ok:false because of a conflict, do not call create_event again. Tell the user the slot is already booked and show the conflicting event(s).
 - Include Google Calendar links when a tool result contains one.
 - Use simple date phrases from the user directly; the tool layer can parse phrases like today, tomorrow, and this week.`;
 

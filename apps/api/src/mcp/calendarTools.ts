@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   createCalendarEvent,
   deleteCalendarEvent,
+  findCalendarConflicts,
   listCalendarEvents,
   updateCalendarEvent
 } from "../google/calendarClient.js";
@@ -83,6 +84,16 @@ export const mcpCalendarTools: McpToolDefinition[] = [
     schema: createEventSchema,
     handler: async (rawInput) => {
       const input = createEventSchema.parse(rawInput);
+      const conflicts = await findCalendarConflicts(input);
+
+      if (conflicts.length > 0) {
+        return {
+          ok: false,
+          message: `I did not create a duplicate event because ${conflicts.length} event(s) already overlap that time.`,
+          data: conflicts
+        };
+      }
+
       const event = await createCalendarEvent(input);
       return {
         ok: true,

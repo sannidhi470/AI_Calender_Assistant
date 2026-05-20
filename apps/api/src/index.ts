@@ -2,6 +2,10 @@ import type { ChatRequest } from "@ai-calendar-assistant/shared";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 
+import {
+  executeEventConfirmation,
+  maybeCreateEventSelection
+} from "./agent/eventSelection.js";
 import { runCalendarAgent } from "./agent/calendarAgent.js";
 import { config } from "./config.js";
 import {
@@ -55,10 +59,23 @@ app.get("/auth/google/callback", async (req, res, next) => {
 
 app.post("/api/chat", async (req: Request<object, object, ChatRequest>, res, next) => {
   try {
-    const { message, history } = req.body;
+    const { message, history, confirmation } = req.body;
 
     if (!message || typeof message !== "string") {
       res.status(400).json({ error: "message is required" });
+      return;
+    }
+
+    if (confirmation) {
+      const response = await executeEventConfirmation(confirmation);
+      res.json(response);
+      return;
+    }
+
+    const selectionResponse = await maybeCreateEventSelection(message);
+
+    if (selectionResponse) {
+      res.json(selectionResponse);
       return;
     }
 
