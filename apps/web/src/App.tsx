@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChatMessage,
   EventConfirmationOption
@@ -14,9 +14,48 @@ const examples = [
   "Move my 3 PM meeting to 5 PM",
   "Cancel my 6 PM event"
 ];
+const CHAT_STORAGE_KEY = "ai-calendar-assistant:messages";
+const welcomeMessage: UiMessage = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "Hi, I can help manage your Google Calendar. Try asking me to schedule, list, move, or cancel an event."
+};
 
 function newId() {
   return crypto.randomUUID();
+}
+
+function loadStoredMessages(): UiMessage[] {
+  try {
+    const stored = localStorage.getItem(CHAT_STORAGE_KEY);
+
+    if (!stored) {
+      return [welcomeMessage];
+    }
+
+    const parsed = JSON.parse(stored) as UiMessage[];
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return [welcomeMessage];
+    }
+
+    return parsed.map((message) => ({
+      ...message,
+      pendingConfirmation: undefined
+    }));
+  } catch {
+    return [welcomeMessage];
+  }
+}
+
+function saveMessages(messages: UiMessage[]) {
+  const serializableMessages = messages.map((message) => ({
+    ...message,
+    pendingConfirmation: undefined
+  }));
+
+  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(serializableMessages));
 }
 
 function formatDateTime(value: string) {
@@ -149,18 +188,19 @@ function MessageBubble({
 }
 
 export default function App() {
-  const [messages, setMessages] = useState<UiMessage[]>([
-    {
-      id: newId(),
-      role: "assistant",
-      content:
-        "Hi, I can help manage your Google Calendar. Try asking me to schedule, list, move, or cancel an event."
-    }
-  ]);
+  const [messages, setMessages] = useState<UiMessage[]>(loadStoredMessages);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      saveMessages(messages);
+    } catch {
+      // Ignore storage failures so private browsing or quota errors do not break chat.
+    }
+  }, [messages]);
 
   const apiHistory = useMemo<ChatMessage[]>(
     () =>
@@ -275,6 +315,13 @@ export default function App() {
     }
   }
 
+  function handleClearHistory() {
+    setMessages([welcomeMessage]);
+    setError(null);
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+    inputRef.current?.focus();
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-8">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white/80 shadow-2xl shadow-slate-200/60 backdrop-blur">
@@ -298,6 +345,13 @@ export default function App() {
             >
               Connect Google
             </a>
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            >
+              Clear chat
+            </button>
           </div>
         </header>
 
