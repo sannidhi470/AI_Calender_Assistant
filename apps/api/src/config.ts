@@ -10,7 +10,7 @@ dotenv.config({ path: apiEnvPath });
 dotenv.config({ path: rootEnvPath });
 
 export const config = {
-  apiPort: Number(process.env.API_PORT ?? 4000),
+  apiPort: Number(process.env.PORT ?? process.env.API_PORT ?? 4000),
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
   openAiApiKey: process.env.OPENAI_API_KEY,
   openAiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
