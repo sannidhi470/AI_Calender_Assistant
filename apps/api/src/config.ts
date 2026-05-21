@@ -6,8 +6,8 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const apiEnvPath = path.resolve(currentDir, "../.env");
 const rootEnvPath = path.resolve(currentDir, "../../../.env");
 
+dotenv.config({ path: apiEnvPath });
 dotenv.config({ path: rootEnvPath });
-dotenv.config({ path: apiEnvPath, override: true });
 
 export const config = {
   apiPort: Number(process.env.API_PORT ?? 4000),

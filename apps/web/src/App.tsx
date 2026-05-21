@@ -21,6 +21,10 @@ const welcomeMessage: UiMessage = {
   content:
     "Hi, I can help manage your Google Calendar. Try asking me to schedule, list, move, or cancel an event."
 };
+type ActivityStatus = {
+  title: string;
+  detail: string;
+};
 
 function newId() {
   return crypto.randomUUID();
@@ -56,6 +60,43 @@ function saveMessages(messages: UiMessage[]) {
   }));
 
   localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(serializableMessages));
+}
+
+function getActivityStatus(message: string): ActivityStatus {
+  const normalized = message.toLowerCase();
+
+  if (/\b(cancel|delete|remove)\b/.test(normalized)) {
+    return {
+      title: "Canceling event...",
+      detail: "Finding the matching calendar event before deleting it."
+    };
+  }
+
+  if (/\b(move|reschedule|update|change)\b/.test(normalized)) {
+    return {
+      title: "Updating event...",
+      detail: "Checking your calendar and preparing the event changes."
+    };
+  }
+
+  if (/\b(schedule|book|create|add|set up)\b/.test(normalized)) {
+    return {
+      title: "Creating event...",
+      detail: "Checking availability before adding anything to your calendar."
+    };
+  }
+
+  if (/\b(what|list|show|have|events?|calendar|week|today|tomorrow)\b/.test(normalized)) {
+    return {
+      title: "Checking calendar...",
+      detail: "Reading your calendar events for the requested time range."
+    };
+  }
+
+  return {
+    title: "Thinking...",
+    detail: "Deciding which calendar tool should handle this request."
+  };
 }
 
 function formatDateTime(value: string) {
@@ -187,10 +228,30 @@ function MessageBubble({
   );
 }
 
+function ActivityBubble({ status }: { status: ActivityStatus }) {
+  return (
+    <div className="mr-auto max-w-[82%] rounded-3xl border border-blue-100 bg-white px-5 py-4 text-sm shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="relative flex h-3 w-3">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500" />
+        </span>
+        <div>
+          <p className="font-semibold text-slate-800">{status.title}</p>
+          <p className="mt-1 text-xs text-slate-500">{status.detail}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [messages, setMessages] = useState<UiMessage[]>(loadStoredMessages);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [activityStatus, setActivityStatus] = useState<ActivityStatus | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -228,6 +289,7 @@ export default function App() {
     setMessages((current) => [...current, userMessage]);
     setInput("");
     setIsSending(true);
+    setActivityStatus(getActivityStatus(trimmed));
     setError(null);
 
     try {
@@ -259,6 +321,7 @@ export default function App() {
       ]);
     } finally {
       setIsSending(false);
+      setActivityStatus(null);
       inputRef.current?.focus();
     }
   }
@@ -276,6 +339,17 @@ export default function App() {
 
     setMessages((current) => [...current, userMessage]);
     setIsSending(true);
+    setActivityStatus(
+      option.confirmation.action === "delete"
+        ? {
+            title: "Canceling event...",
+            detail: "Deleting the selected event from Google Calendar."
+          }
+        : {
+            title: "Updating event...",
+            detail: "Applying the selected change to Google Calendar."
+          }
+    );
     setError(null);
 
     try {
@@ -311,6 +385,7 @@ export default function App() {
       ]);
     } finally {
       setIsSending(false);
+      setActivityStatus(null);
       inputRef.current?.focus();
     }
   }
@@ -318,6 +393,7 @@ export default function App() {
   function handleClearHistory() {
     setMessages([welcomeMessage]);
     setError(null);
+    setActivityStatus(null);
     localStorage.removeItem(CHAT_STORAGE_KEY);
     inputRef.current?.focus();
   }
@@ -364,10 +440,8 @@ export default function App() {
               isSending={isSending}
             />
           ))}
-          {isSending ? (
-            <div className="mr-auto max-w-[82%] rounded-3xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500 shadow-sm">
-              Thinking through the calendar request...
-            </div>
+          {isSending && activityStatus ? (
+            <ActivityBubble status={activityStatus} />
           ) : null}
         </div>
 
