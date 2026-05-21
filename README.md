@@ -147,6 +147,31 @@ Stop the containers:
 docker compose down
 ```
 
+## Render Deployment Reference
+
+Current deployed services:
+
+- Web: [https://ai-calendar-web.onrender.com](https://ai-calendar-web.onrender.com)
+- API: [https://ai-calender-assistant.onrender.com](https://ai-calender-assistant.onrender.com)
+- API health check: [https://ai-calender-assistant.onrender.com/health](https://ai-calender-assistant.onrender.com/health)
+
+Render environment variables:
+
+```bash
+# API service
+FRONTEND_URL=https://ai-calendar-web.onrender.com
+GOOGLE_REDIRECT_URI=https://ai-calender-assistant.onrender.com/auth/google/callback
+
+# Web service
+VITE_API_URL=https://ai-calender-assistant.onrender.com
+```
+
+Google OAuth authorized redirect URI:
+
+```text
+https://ai-calender-assistant.onrender.com/auth/google/callback
+```
+
 ## Example Prompts
 
 - "Schedule a meeting tomorrow at 6 PM for 1 hour"
