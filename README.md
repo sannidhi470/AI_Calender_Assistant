@@ -113,6 +113,40 @@ npm run dev:web
 
 Open the web app at [http://localhost:5173](http://localhost:5173).
 
+## Running With Docker
+
+Docker lets you package the app with its runtime so it runs the same way on your laptop and on a hosting platform.
+
+This project uses two containers:
+
+- `api`: Node.js container running the Express/LangChain backend.
+- `web`: Nginx container serving the built React app.
+
+Build and start both containers:
+
+```bash
+docker compose up --build
+```
+
+Open the containerized web app at [http://localhost:8080](http://localhost:8080).
+
+The API is available at [http://localhost:4000](http://localhost:4000).
+
+For local Docker, keep these OAuth values:
+
+```bash
+FRONTEND_URL=http://localhost:8080
+GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback
+```
+
+The Compose file reads secrets from `.env` and `apps/api/.env` at runtime. The Docker images do not copy `.env` files.
+
+Stop the containers:
+
+```bash
+docker compose down
+```
+
 ## Example Prompts
 
 - "Schedule a meeting tomorrow at 6 PM for 1 hour"

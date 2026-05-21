@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env
+      - apps/api/.env
+    environment:
+      API_PORT: 4000
+      FRONTEND_URL: http://localhost:8080
+      GOOGLE_REDIRECT_URI: http://localhost:4000/auth/google/callback
+    ports:
+      - "4000:4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: http://localhost:4000
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
